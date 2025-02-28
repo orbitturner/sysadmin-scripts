@@ -67,14 +67,22 @@ if [[ ! -f "$BUILD_DIR/$BIN_NAME" ]]; then
 fi
 chmod +x "$BUILD_DIR/$BIN_NAME"
 
-# 🏷️ Create a Git tag and push
-echo "🏷️ Creating Git tag: $NEW_VERSION"
-git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION - ModSecurity Installer"
-git push origin "$NEW_VERSION"
+# 🏷️ Check if the tag already exists before creating it
+if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+    echo "⚠️ Git tag $NEW_VERSION already exists. Skipping tag creation."
+else
+    echo "🏷️ Creating Git tag: $NEW_VERSION"
+    git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION - ModSecurity Installer"
+    git push origin "$NEW_VERSION"
+fi
 
-# 🚀 Create a GitHub release
-echo "📦 Creating GitHub release..."
-gh release create "$NEW_VERSION" "$BUILD_DIR/$BIN_NAME" --title "Release $NEW_VERSION" --notes "🚀 New version of install_modsec"
+# 🚀 Check if the release exists before creating it
+if gh release view "$NEW_VERSION" >/dev/null 2>&1; then
+    echo "⚠️ GitHub release $NEW_VERSION already exists. Skipping release creation."
+else
+    echo "📦 Creating GitHub release..."
+    gh release create "$NEW_VERSION" "$BUILD_DIR/$BIN_NAME" --title "Release $NEW_VERSION" --notes "🚀 New version of install_modsec"
+fi
 
 # 📢 Display the download link
 echo "✅ Build & release completed successfully!"
