@@ -1,192 +1,193 @@
-# Installation et Configuration Automatisées de Nginx + ModSecurity
+# 🚀 **ModSecurity Installer - Public Helper**
+An automated tool to **install, configure, and manage** [ModSecurity](https://modsecurity.org) on an **Nginx** server running on Linux.
 
-Ce projet fournit un **script Python idempotent** permettant :
-
-1. **D’installer** et **configurer** [Nginx](https://nginx.org) et [ModSecurity](https://modsecurity.org) sous Debian/Ubuntu.  
-2. **D’activer** et **de personnaliser** les règles de sécurité ModSecurity via différents profils (ex : `basic`, `strict`, `paranoid`).  
-3. De **désactiver / activer** certaines règles spécifiques.  
-4. De **logger** (via [Loguru](https://pypi.org/project/loguru/)) les détails et la **durée** (en secondes) de chaque opération principale.  
-5. D’avoir une sortie **colorée** et “fancy” via [Rich](https://pypi.org/project/rich).
-
-## Sommaire
-
-- [Prérequis](#prérequis)  
-- [Installation](#installation)  
-  - [1. Cloner le dépôt](#1-cloner-le-dépôt)  
-  - [2. Créer un environnement virtuel (venv)](#2-créer-un-environnement-virtuel-venv)  
-  - [3. Installer les dépendances](#3-installer-les-dépendances)  
-- [Configuration](#configuration)  
-  - [Via un fichier `.env`](#via-un-fichier-env)  
-  - [Via paramètres en ligne de commande (CLI)](#via-paramètres-en-ligne-de-commande-cli)  
-- [Utilisation](#utilisation)  
-  - [Exemples de commandes](#exemples-de-commandes)  
-- [Logs & Mesures de performances](#logs--mesures-de-performances)  
-- [Personnalisation](#personnalisation)  
-- [License](#license)
+✅ **For System Administrators** → **One-command** installation and configuration  
+✅ **For Developers** → **Extensible and customizable** with automated **GitHub Actions**  
 
 ---
 
-## Prérequis
-
-- Distribution **Debian/Ubuntu** (ou dérivée) disposant de `apt-get` pour installer Nginx et ModSecurity.  
-- **Python 3.7+** recommandé.  
-- Accès **root** ou **sudo** pour installer/configurer des paquets système (Nginx, ModSecurity).  
-- Outils `git` pour cloner les règles [OWASP Core Rule Set (CRS)](https://github.com/coreruleset/coreruleset).
+# 📌 **Table of Contents**
+- [🛠️ For System Administrators (Usage)](#for-system-administrators-usage)
+  - [Quick Installation](#quick-installation)
+  - [Usage](#usage)
+  - [Examples](#examples)
+  - [Updating](#updating)
+- [💻 For Developers (Contributing & Automation)](#for-developers-contributing--automation)
+  - [Project Setup](#project-setup)
+  - [Compiling the Binary](#compiling-the-binary)
+  - [GitHub Actions Automation](#github-actions-automation)
+- [🔄 Customization](#customization)
+- [🔧 Troubleshooting](#troubleshooting)
+- [📜 License](#license)
 
 ---
 
-## Installation
+# 🛠️ **For System Administrators (Usage)**  
 
-### 1. Cloner le dépôt
+### 📥 **Quick Installation**
+On a **Linux machine**, install and run the script instantly with:
 
 ```bash
-git clone https://github.com/votre_compte/mon_projet_modsec.git
-cd mon_projet_modsec
+curl -sL https://github.com/orbitturner/sysadmin-scripts/releases/latest/download/install_modsec -o install_modsec && chmod +x install_modsec && ./install_modsec
+```
+or with `wget`:
+```bash
+wget -qO install_modsec https://github.com/orbitturner/sysadmin-scripts/releases/latest/download/install_modsec && chmod +x install_modsec && ./install_modsec
 ```
 
-Adaptez l’URL de votre dépôt selon votre configuration.
+---
 
-### 2. Créer un environnement virtuel (venv)
+### ⚙️ **Usage**
+The script will:
+1. **Check if Nginx** is installed and prompt for installation if missing.
+2. **Check if ModSecurity** (`libnginx-mod-security2`) is installed and proceed with installation if necessary.
+3. **Download and configure** the **OWASP Core Rule Set (CRS)** for ModSecurity.
+4. Apply a **security configuration profile** (`basic`, `strict`, `paranoid`).
+5. **Restart Nginx** with the new security settings.
 
+---
+
+### 📌 **Examples**
+- **Run the script with default settings**:  
+  ```bash
+  ./install_modsec
+  ```
+
+- **Specify a security profile** (`strict`, `paranoid`):  
+  ```bash
+  ./install_modsec --profile strict
+  ```
+
+- **Disable specific security rules** (e.g., `1001`, `1002`):  
+  ```bash
+  ./install_modsec --profile strict --disable-rules 1001 1002
+  ```
+
+- **Enable a specific rule** (`2001`):  
+  ```bash
+  ./install_modsec --enable-rules 2001
+  ```
+
+---
+
+### 🔄 **Updating**
+To **update to the latest version**, run:
+
+```bash
+curl -sL https://github.com/orbitturner/sysadmin-scripts/releases/latest/download/install_modsec -o install_modsec && chmod +x install_modsec
+```
+or
+```bash
+wget -qO install_modsec https://github.com/orbitturner/sysadmin-scripts/releases/latest/download/install_modsec && chmod +x install_modsec
+```
+
+---
+
+# 💻 **For Developers (Contributing & Automation)**  
+
+## 🛠️ **Project Setup**
+Clone the repository:
+```bash
+git clone https://github.com/orbitturner/sysadmin-scripts.git
+cd sysadmin-scripts/Linux/modsec-installer
+```
+
+Create and activate a **Python virtual environment**:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Sous Windows (PowerShell) :
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-### 3. Installer les dépendances
-
-```bash
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ---
 
-## Configuration
-
-### Via un fichier `.env`
-
-Vous pouvez définir certaines variables d’environnement dans un fichier `.env` (situé à la racine du projet). Par exemple :
-
-```ini
-# .env
-MODSEC_PROFILE=basic
-```
-
-- `MODSEC_PROFILE` : Définit le profil de règles ModSecurity (ex : `basic`, `strict`, `paranoid`).  
-
-> **Remarque** : Le script lit ces variables via [python-dotenv](https://pypi.org/project/python-dotenv/).  
-
-### Via paramètres en ligne de commande (CLI)
-
-Les **paramètres CLI** permettent de surcharger ou de compléter les valeurs du `.env`. Exemple :
-
-- `--profile <nom>` : pour choisir un profil ModSecurity.  
-- `--disable-rules <ID1> <ID2> ...` : désactive des règles ModSecurity existantes par ID.  
-- `--enable-rules <ID1> <ID2> ...` : réactive certaines règles.
-
-Exemples :
+## 📦 **Compiling the Binary**
+The script is compiled into a **standalone Linux binary** using **PyInstaller**:
 
 ```bash
-# Profil "strict", désactivation des règles 1001 et 1002
-./install_modsec.py --profile strict --disable-rules 1001 1002
+pyinstaller --onefile --distpath ./bin install_modsec.py
+```
+This generates a **standalone binary** (`./bin/install_modsec`), which can be copied to any Linux server.
 
-# Profil "paranoid", activation de la règle 2001
-./install_modsec.py --profile paranoid --enable-rules 2001
+---
+
+## 🚀 **GitHub Actions Automation**
+The build process is automated using **GitHub Actions**, which:
+- **Compiles** the script with **PyInstaller**.
+- **Automatically increments** the version (`vX.Y.Z`).
+- **Creates a GitHub Release** and uploads the binary.
+- **Enables installation via `curl` or `wget`**.
+
+### **Triggering a Manual Release**
+To manually trigger a **new build and release**:
+1. **Push a commit to `main`**:
+   ```bash
+   git add .
+   git commit -m "fix: improved logging"
+   git push origin main
+   ```
+2. **GitHub Actions will automatically compile and publish the new version.** 🎉
+
+---
+
+# 🔄 **Customization**  
+Modify **ModSecurity security profiles** in `install_modsec.py` by adjusting the `PROFILES` dictionary:
+
+```python
+PROFILES = {
+    "basic": {
+        "description": "Basic profile with OWASP CRS default rules.",
+        "rules": [
+            "SecRuleEngine On",
+            "Include /etc/nginx/modsec/coreruleset/crs-setup.conf",
+            "Include /etc/nginx/modsec/coreruleset/rules/*.conf"
+        ]
+    },
+    "strict": {
+        "description": "More defensive rules enabled (SQLi, XSS).",
+        "rules": [
+            "SecRule REQUEST_HEADERS:User-Agent \"(?i:sqlmap)\" \"id:1001,deny,log,msg:'SQLMap Scan Detected'\""
+        ]
+    }
+}
 ```
 
 ---
 
-## Utilisation
-
-1. **Activer** votre environnement virtuel (si ce n’est pas déjà fait).  
-2. **Lancer** le script :
-
+# 🔧 **Troubleshooting**
+📌 **Nginx or ModSecurity not installed?** → Run:
 ```bash
-python install_modsec.py
+sudo apt-get install nginx libnginx-mod-security2 -y
 ```
 
-ou
-
+📌 **`Permission denied` error on the binary?** → Grant execution permissions:
 ```bash
-./install_modsec.py
+chmod +x install_modsec
 ```
 
-Si vous avez rendu le script exécutable (`chmod +x install_modsec.py`).
-
-Le script :
-
-1. Vérifie si **Nginx** est déjà installé (via `which nginx`).  
-2. Vérifie si **ModSecurity** (`dpkg -s libnginx-mod-security2`) est déjà installé.  
-3. Installe ce qui manque, si vous y consentez.  
-4. Configure ModSecurity avec le **profil** (ex : `basic`) et adapte la configuration Nginx en conséquence.  
-5. Affiche un **résumé** en fin d’exécution.
-
----
-
-### Exemples de commandes
-
-- **Installation & configuration par défaut** :  
-  ```bash
-  ./install_modsec.py
-  ```
-  Utilise le profil défini dans le `.env` ou le **profil “basic”** par défaut.
-
-- **Passage en mode "strict" + désactivation de certaines règles** :  
-  ```bash
-  ./install_modsec.py --profile strict --disable-rules 1001 1002
-  ```
-
-- **Passage en mode "paranoid" + réactivation d’une règle** :  
-  ```bash
-  ./install_modsec.py --profile paranoid --enable-rules 2001
-  ```
-
----
-
-## Logs & Mesures de performances
-
-- Le script génère un fichier de logs **`install_modsec.log`** (rotation automatique à 5 MB, compression au format zip) grâce à **Loguru**.  
-- Les logs incluent :
-  - Les **actions** effectuées (installation Nginx/ModSecurity, configuration, etc.).  
-  - Les **erreurs** potentielles (y compris stacktrace en cas d’exception).  
-  - Les **durées** (mesures de performances) de chaque opération principale (installation, configuration), logguées au niveau **DEBUG**.  
-    - Exemple :  
-      ```
-      DEBUG - install_nginx() terminé en 2.53s
-      DEBUG - configure_modsecurity() terminé en 1.22s
-      ```  
-- Pour voir ces messages de debug dans la console, vous pouvez **augmenter le niveau de verbosité** :
-
+📌 **Python `ModuleNotFoundError`?** → Ensure dependencies are installed:
 ```bash
-export LOGURU_LEVEL=DEBUG
-./install_modsec.py
+pip install -r requirements.txt
+```
+
+📌 **GitHub CLI (`gh`) not installed?** → Install it for managing releases:
+```bash
+sudo apt install gh
+gh auth login
 ```
 
 ---
 
-## Personnalisation
-
-- **Dépôts et versions** : Pour un autre OS (CentOS, Fedora, etc.), adaptez la logique d’installation (`yum`, `dnf`) et la détection de paquets (ex : `rpm -q ...`).  
-- **Profils de configuration** : Dans le fichier `install_modsec.py`, le dictionnaire `PROFILES` contient vos règles de base. Vous pouvez **ajouter**, **modifier** ou **supprimer** des règles en fonction de vos besoins.  
-- **Gestion d’erreurs** : Vous pouvez renforcer la stratégie de rollback (sauvegarder/restaurer l’ancien `nginx.conf`, etc.).  
-- **Logs** : Personnalisez le format Loguru, le chemin d’accès au fichier log, la stratégie de rotation, etc.
+# 📜 **License**
+📜 Distributed under the [MIT License](./LICENSE).  
+📢 **Open-source and free to use** – Contributions are welcome! 🚀  
 
 ---
 
-## License
+# 🚀 **Ready to Use!**
+- 📥 **Instant installation** via `curl` or `wget`
+- 🔄 **Auto-updates**
+- 🏗 **Easily customizable**
+- 🔥 **Automated releases with GitHub Actions**
 
-Ce projet est distribué sous licence [MIT](./LICENSE) (ou la licence de votre choix).  
-Vous êtes libres de le **modifier**, de le **redistribuer**, et de l’**améliorer**.  
-
----
-
-**Bon déploiement !**  
-Pour toute question ou suggestion, ouvrez une **issue** ou proposez une **Pull Request**.
+💡 **Have questions or suggestions?** [Open an issue](https://github.com/orbitturner/sysadmin-scripts/issues) or submit a PR! 😃🚀

@@ -1,83 +1,83 @@
 #!/bin/bash
 
 # ==========================
-# SCRIPT DE BUILD & RELEASE
+# BUILD & RELEASE SCRIPT
 # ==========================
-# 🚀 Compile le script Python en binaire avec PyInstaller
-# 🏷️ Versionne et publie sur GitHub Releases
-# 📢 Auteur : orbitturner
+# 🚀 Compiles the Python script into a standalone binary using PyInstaller
+# 🏷️ Versioning and publishing to GitHub Releases
+# 📢 Author: orbitturner
 # ==========================
 
-set -e  # Arrêter le script en cas d'erreur
+set -e  # Exit immediately if a command fails
 
 # 🛠️ Configurations
 REPO_OWNER="orbitturner"
 REPO_NAME="sysadmin-scripts"
-PROJECT_DIR="Linux/modsec-installer"
+PROJECT_DIR="./"
 BIN_NAME="install_modsec"
 BUILD_DIR="./bin"
 GITHUB_API="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME"
 GITHUB_RELEASES="https://github.com/$REPO_OWNER/$REPO_NAME/releases/latest/download/$BIN_NAME"
 
-# 🔍 Vérification des dépendances
-echo "🔎 Vérification des dépendances..."
+# 🔍 Checking dependencies
+echo "🔎 Checking dependencies..."
 if ! command -v pyinstaller &>/dev/null; then
-    echo "❌ PyInstaller n'est pas installé !"
-    echo "➡️  Installation : pip install pyinstaller"
+    echo "❌ PyInstaller is not installed!"
+    echo "➡️  Install it using: pip install pyinstaller"
     exit 1
 fi
 if ! command -v jq &>/dev/null; then
-    echo "❌ jq n'est pas installé (nécessaire pour gérer la version)."
-    echo "➡️  Installation : sudo apt install jq"
+    echo "❌ jq is not installed (required for version handling)."
+    echo "➡️  Install it using: sudo apt install jq"
     exit 1
 fi
 if ! command -v gh &>/dev/null; then
-    echo "❌ GitHub CLI (gh) n'est pas installé."
-    echo "➡️  Installation : https://cli.github.com/"
+    echo "❌ GitHub CLI (gh) is not installed."
+    echo "➡️  Install it from: https://cli.github.com/"
     exit 1
 fi
 
-# 🔥 Aller dans le bon dossier
+# 🔥 Navigate to the correct directory
 cd "$(dirname "$0")"
 
-# 🔄 Récupérer la dernière version publiée sur GitHub
-echo "🔍 Récupération de la dernière version..."
+# 🔄 Fetch the latest version published on GitHub
+echo "🔍 Retrieving the latest version..."
 LATEST_VERSION=$(curl -s "$GITHUB_API/releases/latest" | jq -r .tag_name)
 
-# Si aucune version n'existe, on démarre à v1.0.0
+# If no version exists, start at v1.0.0
 if [[ "$LATEST_VERSION" == "null" || -z "$LATEST_VERSION" ]]; then
     NEW_VERSION="v1.0.0"
 else
-    # 📈 Incrémentation automatique de version (ex: v1.0.0 → v1.0.1)
+    # 📈 Auto-increment version (e.g., v1.0.0 → v1.0.1)
     VERSION_PARTS=(${LATEST_VERSION//./ })
     PATCH=$((VERSION_PARTS[2] + 1))
     NEW_VERSION="v${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
 fi
 
-echo "🆕 Nouvelle version : $NEW_VERSION"
+echo "🆕 New version: $NEW_VERSION"
 
-# 🚀 Compilation avec PyInstaller
-echo "⚙️  Compilation du binaire..."
+# 🚀 Compile with PyInstaller
+echo "⚙️  Compiling the binary..."
 pyinstaller --onefile --distpath $BUILD_DIR "$PROJECT_DIR/install_modsec.py"
 
-# 📌 Vérifier si le build a réussi
+# 📌 Verify if the build was successful
 if [[ ! -f "$BUILD_DIR/$BIN_NAME" ]]; then
-    echo "❌ Erreur : Le binaire n'a pas été généré correctement."
+    echo "❌ Error: The binary was not generated correctly."
     exit 1
 fi
 chmod +x "$BUILD_DIR/$BIN_NAME"
 
-# 🏷️ Création du tag et push
-echo "🏷️ Création du tag Git : $NEW_VERSION"
+# 🏷️ Create a Git tag and push
+echo "🏷️ Creating Git tag: $NEW_VERSION"
 git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION - ModSecurity Installer"
 git push origin "$NEW_VERSION"
 
-# 🚀 Création d'une release sur GitHub
-echo "📦 Création de la release sur GitHub..."
-gh release create "$NEW_VERSION" "$BUILD_DIR/$BIN_NAME" --title "Release $NEW_VERSION" --notes "🚀 Nouvelle version de install_modsec"
+# 🚀 Create a GitHub release
+echo "📦 Creating GitHub release..."
+gh release create "$NEW_VERSION" "$BUILD_DIR/$BIN_NAME" --title "Release $NEW_VERSION" --notes "🚀 New version of install_modsec"
 
-# 📢 Affichage du lien de téléchargement
-echo "✅ Build & release terminé !"
-echo "📥 Vous pouvez télécharger le binaire avec :"
+# 📢 Display the download link
+echo "✅ Build & release completed successfully!"
+echo "📥 You can download the binary using:"
 echo "curl -sL $GITHUB_RELEASES -o $BIN_NAME && chmod +x $BIN_NAME && ./$BIN_NAME"
 echo "wget -qO $BIN_NAME $GITHUB_RELEASES && chmod +x $BIN_NAME && ./$BIN_NAME"

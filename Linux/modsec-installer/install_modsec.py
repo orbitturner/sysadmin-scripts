@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# ==========================
+# NGINX + MODSECURITY INSTALL SCRIPT
+# ==========================
+# 🚀 Installs and configures Nginx + ModSecurity
+# 🏷️ Idempotent approach with multiple security profiles
+# 📢 Author: orbitturner
+# ==========================
+
 import os
 import sys
 import subprocess
@@ -15,52 +23,48 @@ from rich.prompt import Prompt
 from rich import print as rprint
 
 # ------------------------------------------------------------------------------
-# Configuration du logger Loguru
+# Loguru Configuration
 # ------------------------------------------------------------------------------
 logger.add("install_modsec.log", rotation="5 MB",
            compression="zip", backtrace=True, diagnose=True)
 
 # ------------------------------------------------------------------------------
-# Chargement des variables d'environnement
+# Load environment variables
 # ------------------------------------------------------------------------------
 load_dotenv()
 
 # ------------------------------------------------------------------------------
-# Configuration Rich
+# Rich Configuration
 # ------------------------------------------------------------------------------
 console = Console()
 
 # ------------------------------------------------------------------------------
-# Définition de quelques profils de base
+# Definition of security profiles
 # ------------------------------------------------------------------------------
 PROFILES = {
     "basic": {
-        "description": "Profil basique, règles OWASP CRS par défaut, filtrage minimal.",
+        "description": "Basic profile with OWASP CRS default rules and minimal filtering.",
         "rules": [
-            # Exemple de règles OWASP de base
             "SecRuleEngine On",
             "Include /etc/nginx/modsec/coreruleset/crs-setup.conf",
             "Include /etc/nginx/modsec/coreruleset/rules/*.conf",
-            # Possibilité d'ajouter des règles custom
         ]
     },
     "strict": {
-        "description": "Profil strict, active plus de règles défensives (SQLi, XSS).",
+        "description": "Strict profile with stronger defensive rules (SQLi, XSS).",
         "rules": [
             "SecRuleEngine On",
             "Include /etc/nginx/modsec/coreruleset/crs-setup.conf",
             "Include /etc/nginx/modsec/coreruleset/rules/*.conf",
-            # Exemple de règle supplémentaire
             "SecRule REQUEST_HEADERS:User-Agent \"(?i:sqlmap)\" \"id:1001,deny,log,msg:'SQLMap Scan Detected'\""
         ]
     },
     "paranoid": {
-        "description": "Profil paranoïaque, activations agressives de règles, risque de faux positifs.",
+        "description": "Paranoid profile with aggressive rule activation, higher risk of false positives.",
         "rules": [
             "SecRuleEngine On",
             "Include /etc/nginx/modsec/coreruleset/crs-setup.conf",
             "Include /etc/nginx/modsec/coreruleset/rules/*.conf",
-            # Exemple de règle plus sensible
             "SecRule ARGS \"(?i:select|union|drop|insert)\" \"id:2001,deny,log,msg:'SQL Keywords Detected'\"",
             "SecRule ARGS \"<script>\" \"id:2002,deny,log,msg:'XSS Detected'\""
         ]
@@ -68,128 +72,127 @@ PROFILES = {
 }
 
 # ------------------------------------------------------------------------------
-# Fonctions utilitaires
+# Utility Functions
 # ------------------------------------------------------------------------------
 
 
-def run_command(cmd):
+def run_command(cmd: str) -> bool:
     """
-    Lance une commande shell et renvoie True si tout se passe bien,
-    sinon False. Affiche aussi les logs d'erreurs si besoin.
+    Execute a shell command and return True if successful, otherwise False.
+    Logs errors if needed.
     """
-    logger.debug(f"Exécution de la commande : {cmd}")
+    logger.debug(f"Executing command: {cmd}")
     try:
         result = subprocess.run(
             cmd, shell=True, check=False, capture_output=True, text=True)
         if result.returncode == 0:
-            logger.debug(f"Succès: {result.stdout.strip()}")
+            logger.debug(f"Success: {result.stdout.strip()}")
             return True
         else:
             logger.error(
-                f"Erreur ({result.returncode}): {result.stderr.strip()}")
+                f"Error ({result.returncode}): {result.stderr.strip()}")
             return False
     except Exception as e:
-        logger.exception(
-            f"Exception lors de l'exécution de la commande : {cmd}")
+        logger.exception(f"Exception while running command: {cmd}")
         return False
 
 
-def is_nginx_installed():
+def is_nginx_installed() -> bool:
     """
-    Vérifie si Nginx est installé.
+    Check if Nginx is installed.
     """
-    logger.debug("Vérification de l'installation de Nginx...")
+    logger.debug("Checking if Nginx is installed...")
     check = subprocess.run("which nginx", shell=True, capture_output=True)
     return check.returncode == 0
 
 
-def is_modsecurity_installed():
+def is_modsecurity_installed() -> bool:
     """
-    Vérifie si ModSecurity est installé (en supposant la présence d'un paquet).
-    Ajuster en fonction de la distribution (Debian/RedHat).
+    Check if ModSecurity is installed (assuming 'libnginx-mod-security2' package for Debian/Ubuntu).
+    Adjust accordingly for other distributions (e.g., CentOS/RedHat).
     """
-    logger.debug("Vérification de l'installation de ModSecurity...")
+    logger.debug("Checking if ModSecurity is installed...")
     check = subprocess.run("dpkg -s libnginx-mod-security2",
                            shell=True, capture_output=True, text=True)
     return check.returncode == 0
 
 
-def install_nginx():
+def install_nginx() -> bool:
     """
-    Installe Nginx (Debian/Ubuntu). Idempotent, vérifie avant si c'est déjà installé.
+    Install Nginx (Debian/Ubuntu). Idempotent, checks first if it's already installed.
     """
     start_time = time.time()
 
     if is_nginx_installed():
-        rprint("[green]✅ Nginx est déjà installé.[/green]")
-        logger.info("Nginx déjà installé")
+        rprint("[green]✅ Nginx is already installed.[/green]")
+        logger.info("Nginx is already installed")
         logger.debug(
-            f"install_nginx() terminé en {time.time() - start_time:.2f}s")
+            f"install_nginx() completed in {time.time() - start_time:.2f}s")
         return True
 
-    rprint("[yellow]⚠️  Nginx n'est pas installé sur ce système.[/yellow]")
-    console.print("Voulez-vous l'installer ? [y/n]", style="bold cyan")
+    rprint("[yellow]⚠️  Nginx is not installed on this system.[/yellow]")
+    console.print("Do you want to install it? [y/n]", style="bold cyan")
     choice = Prompt.ask("")
 
     if choice.lower() == "y":
-        rprint("🚀 [blue]Installation de Nginx en cours...[/blue]")
+        rprint("🚀 [blue]Installing Nginx...[/blue]")
         if run_command("sudo apt-get update && sudo apt-get install -y nginx"):
-            rprint("[green]✅ Nginx installé avec succès ![/green]")
-            logger.info("Nginx installé avec succès")
+            rprint("[green]✅ Nginx installed successfully![/green]")
+            logger.info("Nginx installed successfully")
             logger.debug(
-                f"install_nginx() terminé en {time.time() - start_time:.2f}s")
+                f"install_nginx() completed in {time.time() - start_time:.2f}s")
             return True
         else:
-            rprint("[red]❌ Échec de l'installation de Nginx[/red]")
-            logger.error("Échec de l'installation de Nginx")
+            rprint("[red]❌ Failed to install Nginx[/red]")
+            logger.error("Failed to install Nginx")
             logger.debug(
-                f"install_nginx() terminé en {time.time() - start_time:.2f}s (erreur)")
+                f"install_nginx() completed in {time.time() - start_time:.2f}s (error)")
             return False
     else:
-        rprint("[red]Installation de Nginx refusée. Abandon.[/red]")
-        logger.warning("Installation de Nginx refusée par l'utilisateur")
+        rprint("[red]Nginx installation was refused. Aborting.[/red]")
+        logger.warning("Nginx installation refused by user")
         sys.exit(1)
 
 
-def install_modsecurity():
+def install_modsecurity() -> bool:
     """
-    Installe ModSecurity (Debian/Ubuntu). Idempotent, vérifie avant.
+    Install ModSecurity (Debian/Ubuntu). Idempotent, checks first if it's already installed.
     """
     start_time = time.time()
 
     if is_modsecurity_installed():
-        rprint("[green]✅ ModSecurity est déjà installé.[/green]")
-        logger.info("ModSecurity déjà installé")
+        rprint("[green]✅ ModSecurity is already installed.[/green]")
+        logger.info("ModSecurity is already installed")
         logger.debug(
-            f"install_modsecurity() terminé en {time.time() - start_time:.2f}s")
+            f"install_modsecurity() completed in {time.time() - start_time:.2f}s")
         return True
 
-    rprint("🚀 [blue]Installation de ModSecurity en cours...[/blue]")
+    rprint("🚀 [blue]Installing ModSecurity...[/blue]")
     if run_command("sudo apt-get update && sudo apt-get install -y libnginx-mod-security2 git"):
-        rprint("[green]✅ ModSecurity installé avec succès ![/green]")
-        logger.info("ModSecurity installé avec succès")
+        rprint("[green]✅ ModSecurity installed successfully![/green]")
+        logger.info("ModSecurity installed successfully")
         logger.debug(
-            f"install_modsecurity() terminé en {time.time() - start_time:.2f}s")
+            f"install_modsecurity() completed in {time.time() - start_time:.2f}s")
         return True
     else:
-        rprint("[red]❌ Échec de l'installation de ModSecurity[/red]")
-        logger.error("Échec de l'installation de ModSecurity")
+        rprint("[red]❌ Failed to install ModSecurity[/red]")
+        logger.error("Failed to install ModSecurity")
         logger.debug(
-            f"install_modsecurity() terminé en {time.time() - start_time:.2f}s (erreur)")
+            f"install_modsecurity() completed in {time.time() - start_time:.2f}s (error)")
         return False
 
 
-def configure_modsecurity(profile_name, disable_rules=None, enable_rules=None):
+def configure_modsecurity(profile_name: str, disable_rules=None, enable_rules=None):
     """
-    Configure ModSecurity avec un profil donné.
-    - disable_rules / enable_rules sont des listes d'IDs de règles à activer/désactiver.
+    Configure ModSecurity using a chosen profile.
+    - disable_rules / enable_rules are lists of rule IDs to disable/enable.
     """
     start_time = time.time()
 
     modsec_conf = "/etc/nginx/modsecurity.conf"
     crs_repo = "/etc/nginx/modsec/coreruleset"
 
-    # Cloner les règles OWASP CRS si pas déjà fait (idempotent)
+    # Clone OWASP CRS if not already present (idempotent)
     if not os.path.isdir(crs_repo):
         run_command(
             f"sudo git clone https://github.com/coreruleset/coreruleset.git {crs_repo}")
@@ -197,26 +200,25 @@ def configure_modsecurity(profile_name, disable_rules=None, enable_rules=None):
             f"sudo mv {crs_repo}/crs-setup.conf.example {crs_repo}/crs-setup.conf")
 
     if profile_name not in PROFILES:
-        rprint(f"[red]❌ Profil {profile_name} inconnu. Abandon.[/red]")
-        logger.error(f"Profil {profile_name} inconnu.")
+        rprint(f"[red]❌ Unknown profile {profile_name}. Aborting.[/red]")
+        logger.error(f"Unknown profile {profile_name}.")
         sys.exit(1)
 
     rules = PROFILES[profile_name]["rules"].copy()
 
-    # Désactivation de règles via SecRuleUpdateActionById
+    # Disable rules with SecRuleUpdateActionById
     if disable_rules:
         for rule_id in disable_rules:
-            # On fait juste un debug pour signaler
-            logger.debug(f"Désactivation de la règle ID {rule_id}")
+            logger.debug(f"Disabling rule ID {rule_id}")
             rules.append(f"SecRuleUpdateActionById {rule_id} \"nolog,pass\"")
 
-    # Activation de règles via SecRuleUpdateActionById
+    # Enable rules with SecRuleUpdateActionById
     if enable_rules:
         for rule_id in enable_rules:
-            logger.debug(f"Activation de la règle ID {rule_id}")
+            logger.debug(f"Enabling rule ID {rule_id}")
             rules.append(f"SecRuleUpdateActionById {rule_id} \"deny,log\"")
 
-    # Écriture du fichier de conf
+    # Write the configuration file
     try:
         with open("/tmp/modsecurity.conf.tmp", "w") as f:
             f.write("SecAuditLog /var/log/nginx/modsec_audit.log\n")
@@ -229,7 +231,7 @@ def configure_modsecurity(profile_name, disable_rules=None, enable_rules=None):
         run_command(f"sudo chown root:root {modsec_conf}")
         run_command(f"sudo chmod 644 {modsec_conf}")
 
-        # Vérifier et insérer la directive modsecurity on; dans /etc/nginx/nginx.conf si nécessaire
+        # Check if "modsecurity on;" is already in /etc/nginx/nginx.conf
         with open("/etc/nginx/nginx.conf", "r") as f:
             nginx_conf_content = f.read()
 
@@ -248,28 +250,27 @@ def configure_modsecurity(profile_name, disable_rules=None, enable_rules=None):
         run_command("sudo systemctl restart nginx")
 
         rprint(
-            f"[green]✅ ModSecurity configuré avec le profil [bold]{profile_name}[/bold].[/green]")
-        logger.info(f"ModSecurity configuré avec le profil {profile_name}.")
+            f"[green]✅ ModSecurity configured with the [bold]{profile_name}[/bold] profile.[/green]")
+        logger.info(f"ModSecurity configured with the {profile_name} profile.")
         logger.debug(
-            f"configure_modsecurity() terminé en {time.time() - start_time:.2f}s")
+            f"configure_modsecurity() completed in {time.time() - start_time:.2f}s")
 
     except Exception as e:
-        rprint(
-            f"[red]❌ Erreur lors de la configuration de ModSecurity: {e}[/red]")
-        logger.exception("Exception lors de la configuration de ModSecurity")
+        rprint(f"[red]❌ Error while configuring ModSecurity: {e}[/red]")
+        logger.exception("Exception while configuring ModSecurity")
         logger.debug(
-            f"configure_modsecurity() terminé en {time.time() - start_time:.2f}s (erreur)")
+            f"configure_modsecurity() completed in {time.time() - start_time:.2f}s (error)")
         sys.exit(1)
 
 # ------------------------------------------------------------------------------
-# Gestion des signaux (Ctrl + C)
+# Signal Handling (Ctrl + C)
 # ------------------------------------------------------------------------------
 
 
 def signal_handler(sig, frame):
     rprint(
-        "\n[bold red]❗ Interruption (Ctrl + C) détectée. Arrêt du script.[/bold red]")
-    logger.warning("Script interrompu par Ctrl + C")
+        "\n[bold red]❗ Interruption (Ctrl + C) detected. Exiting the script.[/bold red]")
+    logger.warning("Script interrupted by Ctrl + C")
     sys.exit(1)
 
 
@@ -277,34 +278,34 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # ------------------------------------------------------------------------------
-# Point d'entrée principal
+# Main Entry Point
 # ------------------------------------------------------------------------------
 
 
 def main():
     """
-    Script principal pour installer/configurer Nginx et ModSecurity.
+    Main script to install/configure Nginx and ModSecurity.
     """
     parser = argparse.ArgumentParser(
-        description="Script idempotent d'installation et configuration de Nginx + ModSecurity."
+        description="Idempotent script for installing and configuring Nginx + ModSecurity."
     )
     parser.add_argument(
         "--profile",
         type=str,
         default=os.getenv("MODSEC_PROFILE", "basic"),
-        help="Choix du profil ModSecurity (basic, strict, paranoid)."
+        help="ModSecurity profile choice (basic, strict, paranoid)."
     )
     parser.add_argument(
         "--disable-rules",
         nargs='*',
         default=None,
-        help="Liste d'IDs de règles à désactiver."
+        help="List of rule IDs to disable."
     )
     parser.add_argument(
         "--enable-rules",
         nargs='*',
         default=None,
-        help="Liste d'IDs de règles à réactiver (deny,log)."
+        help="List of rule IDs to re-enable (deny,log)."
     )
     args = parser.parse_args()
 
@@ -312,27 +313,27 @@ def main():
     disable_rules = args.disable_rules
     enable_rules = args.enable_rules
 
-    rprint("[bold magenta]Bienvenue dans le script d'installation de ModSecurity pour Nginx![/bold magenta] 🎉")
-    logger.info("Démarrage du script d'installation ModSecurity")
+    rprint("[bold magenta]Welcome to the ModSecurity installation script for Nginx![/bold magenta] 🎉")
+    logger.info("Starting the ModSecurity installation script")
 
-    # 1) Vérifier ou installer Nginx
+    # 1) Check or install Nginx
     if not install_nginx():
-        sys.exit(1)  # Impossible d'installer, on quitte
+        sys.exit(1)  # Could not install, exit
 
-    # 2) Vérifier ou installer ModSecurity
+    # 2) Check or install ModSecurity
     if not install_modsecurity():
-        sys.exit(1)  # Impossible d'installer, on quitte
+        sys.exit(1)  # Could not install, exit
 
-    # 3) Configurer ModSecurity selon le profil choisi
+    # 3) Configure ModSecurity according to the chosen profile
     configure_modsecurity(profile, disable_rules, enable_rules)
 
-    rprint("[bold green]✨ Tout est terminé ![/bold green]")
-    logger.info("Installation et configuration terminées avec succès.")
+    rprint("[bold green]✨ All done![/bold green]")
+    logger.info("Installation and configuration completed successfully.")
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logger.info("Interruption du script par Ctrl+C")
+        logger.info("Script interrupted by Ctrl+C")
         sys.exit(0)
